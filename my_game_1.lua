@@ -5,6 +5,7 @@ function _init()
     init_action()
     init_player()
     init_monsters_health()
+    init_monsters_action()
 end
 
 function _update()
@@ -14,6 +15,7 @@ function _update()
     update_action()
     update_player()
     update_monsters_health()
+    update_monsters_action()
 end
 
 function _draw()
@@ -24,11 +26,13 @@ function _draw()
     draw_action()
     draw_player()
     draw_monsters_health()
+    draw_monsters_action()
 end
 
 -- battle menu
 function init_menu()
     your_turn = false
+    monster_turn = false
     actions = {"attack", "defend", "item", "run"}
     menusel = 1
 end
@@ -66,13 +70,14 @@ end
 
 -- monsters
 function init_monsters()
+    monster_y_offset = 0
 end
 
 function update_monsters()
 end
 
 function draw_monsters()
-    spr(129, 55, 20, 4, 4)
+    spr(129, 55, 20 + monster_y_offset, 4, 4)
 end
 
 -- monsters hp
@@ -83,8 +88,45 @@ function update_monsters_health()
 end
 
 function draw_monsters_health()
-    rect(45, 10, 81, 14, 6)
-    rectfill(46, 11, 80, 13, 8)
+    rect(51, 9, 74, 13, 6)
+    rectfill(52, 10, 73, 12, 8)
+end
+
+-- monsters action bar
+function init_monsters_action()
+    monster_action = 0
+end
+
+function monster_animation()
+    for i=1,10 do
+        monster_y_offset += 4
+        yield()
+    end
+end
+
+function update_monsters_action()
+    if not monster_turn then
+        monster_action += 1
+        monster_bar_width = 46 + 36 * monster_action / 100
+        if monster_bar_width >= 67 then
+            monster_turn = true
+            monster_bar_width = 67
+            monster_co = cocreate(monster_animation)
+        end
+    else
+        if costatus(monster_co) != "dead" then
+            coresume(monster_co)
+        else
+            monster_turn = false
+            monster_y_offset = 0
+            monster_action = 0
+        end
+    end
+end
+
+function draw_monsters_action()
+    rect(51, 13, 74, 17, 6)
+    rectfill(52, 14, 6 + monster_bar_width, 16, 10)
 end
 
 -- player
@@ -106,8 +148,8 @@ function update_health()
 end
 
 function draw_health()
-    rect(43, 100, 83, 104, 6)
-    rectfill(44, 101, 82, 103, 8)
+    rect(43, 100, 83, 106, 6)
+    rectfill(44, 101, 82, 105, 8)
 end
 
 -- action bar
@@ -127,6 +169,6 @@ function update_action()
 end
 
 function draw_action()
-    rect(43, 110, 83, 114, 6)
-    rectfill(44, 111, 6 + bar_width, 113, 10)
+    rect(43, 108, 83, 114, 6)
+    rectfill(44, 109, 6 + bar_width, 113, 10)
 end
