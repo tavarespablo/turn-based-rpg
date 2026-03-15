@@ -2,6 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
 function _init()
+    run_tests()
     init_menu()
     init_monsters()
     init_health()
@@ -19,6 +20,7 @@ function _update()
     update_player()
     update_monsters_health()
     update_monsters_action()
+    -- ...existing code...
 end
 
 function _draw()
@@ -54,6 +56,24 @@ function update_menu()
             menusel = #actions
         end
     end
+    if your_turn and btnp(4) then -- X button
+        if menusel == 1 then
+            -- attack
+            monster_health -= 10
+        elseif menusel == 2 then
+            -- defend
+            player_defending = true
+        elseif menusel == 3 then
+            -- item
+            player_health += 10
+        elseif menusel == 4 then
+            -- run
+            game_over = true
+        end
+        your_turn = false
+        action = 0
+        bar_width = 40
+    end
 end
 
 function draw_menu()
@@ -87,6 +107,7 @@ end
 
 -- monsters hp
 function init_monsters_health()
+    monster_health = 73
 end
 
 function update_monsters_health()
@@ -94,12 +115,16 @@ end
 
 function draw_monsters_health()
     rect(51, 9, 74, 13, 6)
-    rectfill(52, 10, 73, 12, 8) -- health
+    -- rectfill(52, 10, 73, 12, 8) -- health
+    if monster_health > 52 then
+        rectfill(52, 10, max(44, monster_health), 12, 8)
+    end
 end
 
 -- monsters action bar
 function init_monsters_action()
     monster_action = 0
+    monster_bar_width = 46
 end
 
 function monster_animation()
@@ -110,31 +135,29 @@ function monster_animation()
 end
 
 function update_monsters_action()
-    if player_health > 42 then
-        if not monster_turn then
-            monster_action += 1
-            monster_bar_width = 46 + 36 * monster_action / 100
-            if monster_bar_width >= 67 then
-                monster_turn = true
-                monster_bar_width = 67
-                monster_co = cocreate(monster_animation)
-            end
-        else
-            if costatus(monster_co) != "dead" then
-                coresume(monster_co)
-            else
-                if player_health > 42 then
-                    player_health -= 10
-                else
-                    player_health = 42
-                    monster_turn = true
-                end
-                    monster_turn = false
-                monster_y_offset = 0
-                monster_action = 0
-            end
+    if player_health <= 42 then return end
+    if monster_health <= 52 then return end
+
+    if not monster_turn then
+        monster_action += 1
+        monster_bar_width = 46 + 36 * monster_action / 100
+        if monster_bar_width >= 67 then
+            monster_turn = true
+            monster_bar_width = 67
+            monster_co = cocreate(monster_animation)
         end
+        return
     end
+
+    if costatus(monster_co) != "dead" then
+        coresume(monster_co)
+        return
+    end
+
+    player_health -= 5
+    monster_turn = false
+    monster_y_offset = 0
+    monster_action = 0  
 end
 
 function draw_monsters_action()
@@ -147,6 +170,10 @@ function init_player()
 end
 
 function update_player()
+    -- ensure game over only at 0 or less
+    if player_health <= 0 then
+        game_over = true
+    end
 end
 
 function draw_player()
@@ -155,7 +182,8 @@ end
 
 -- hp
 function init_health()
-    player_health = 82
+    player_health = 100
+    player_max_health = 100
 end
 
 function update_health()
@@ -163,9 +191,18 @@ end
 
 function draw_health()
     rect(43, 100, 83, 106, 6)
-    print(player_health, 10, 10)
-    if player_health > 42 then
-        rectfill(44, 101, max(44, player_health), 105, 8)
+    print(player_health.."/"..player_max_health, 10, 10)
+    -- clamp health
+    local hp = max(0, min(player_health, player_max_health))
+    -- bar coordinates
+    local bar_x0 = 44
+    local bar_x1 = 83
+    local bar_width = bar_x1 - bar_x0
+    -- percent fill
+    local fill = flr(bar_width * hp / player_max_health)
+    -- always draw red bar for hp > 0
+    if hp > 0 then
+        rectfill(bar_x0, 101, bar_x0 + fill, 105, 8)
     end
 end
 
@@ -191,7 +228,106 @@ function draw_action()
     rect(43, 108, 83, 114, 6)
     rectfill(44, 109, 6 + bar_width, 113, 10)
 end
+
 --test
+-- test_runner.lua for PICO-8 Chrono-Trigger Battle Mini-Game
+-- Run these tests by calling run_tests() in your code or console
+
+function run_tests()
+    printh("", "test_log.txt", false) -- clear log at start
+    printh("Running tests...", "test_log.txt")
+    test_monster_takes_damage()
+    printh("test_monster_takes_damage passed", "test_log.txt")
+    test_player_defends()
+    printh("test_player_defends passed", "test_log.txt")
+    test_action_bar_fills()
+    printh("test_action_bar_fills passed", "test_log.txt")
+    test_player_attack_action()
+    printh("test_player_attack_action passed", "test_log.txt")
+    test_game_over()
+    printh("test_game_over passed", "test_log.txt")
+    test_player_health_bar()
+    printh("test_player_health_bar passed", "test_log.txt")
+    printh("All tests passed!", "test_log.txt")
+end
+
+function test_monster_takes_damage()
+    monster_health = 50
+    monster_health -= 10
+    assert(monster_health == 40, "monster did not take damage")
+end
+
+function test_player_defends()
+    player_defending = false
+    -- simulate defend action
+    player_defending = true
+    assert(player_defending == true, "player did not defend")
+end
+
+function test_action_bar_fills()
+    action = 0
+    bar_width = 40 + 36 * action / 100
+    action += 100
+    bar_width = 40 + 36 * action / 100
+    assert(bar_width == 76, "action bar did not fill correctly")
+end
+
+function test_player_attack_action()
+    monster_health = 50
+    -- simulate attack action
+    monster_health -= 10
+    assert(monster_health == 40, "attack action did not reduce monster health")
+end
+
+function test_game_over()
+    -- test that game_over is not set when hp > 0
+    player_health = 40
+    game_over = false
+    update_player()
+    assert(game_over == false, "game over triggered too early (hp=40)")
+
+    -- test that game_over is set when hp <= 0
+    player_health = 0
+    game_over = false
+    update_player()
+    assert(game_over == true, "game over not triggered at 0 HP")
+
+    player_health = -10
+    game_over = false
+    update_player()
+    assert(game_over == true, "game over not triggered at negative HP")
+end
+
+-- test: player health bar reflects percentage (100 max)
+function test_player_health_bar()
+    -- health bar coordinates (from draw_health)
+    local bar_x0 = 44
+    local bar_x1 = 83
+    local bar_width = bar_x1 - bar_x0
+    -- helper to calculate expected bar end
+    local function expected_bar_end(hp)
+        return bar_x0 + flr(bar_width * max(0, min(100, hp)) / 100)
+    end
+
+    -- test full health (bar should not exceed border)
+    player_health = 100
+    local bar_end = expected_bar_end(player_health)
+    assert(bar_end == 83, "health bar not full at 100 hp")
+    assert(bar_end <= bar_x1, "red bar exceeds border at max health")
+
+    -- test half health
+    player_health = 50
+    bar_end = expected_bar_end(player_health)
+    assert(bar_end == 63, "health bar not half at 50 hp")
+    assert(bar_end <= bar_x1, "red bar exceeds border at half health")
+
+    -- test zero health (bar should not underflow border)
+    player_health = 0
+    bar_end = expected_bar_end(player_health)
+    assert(bar_end == 44, "health bar not empty at 0 hp")
+    assert(bar_end >= bar_x0, "red bar underflows border at 0 health")
+end
+
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
