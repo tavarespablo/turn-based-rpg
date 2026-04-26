@@ -53,6 +53,7 @@ A Chrono Trigger like mini game based on its Active Time Battle system.
 - v0.1: Initial prototype (date)
 - v0.2: Refactored code (added win and lose scenarios)
 - v0.3: Player attack animation, attacks sfx
+- v0.4: soundtrack
 ---
 
 # Previous Milestones
