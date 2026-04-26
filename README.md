@@ -51,16 +51,16 @@ A Chrono Trigger like mini game based on its Active Time Battle system.
 ## Changelog
 
 - v0.1: Initial prototype (date)
-- v0.2: (your next milestone)
+- v0.2: Refactored code (added win and lose scenarios)
 
 ---
 
 # Previous Milestones
 
 1. Implement action bar logic for both player and goblin (fills over time, triggers turn). ✅
-2. Add goblin AI: goblin attacks automatically when its action bar is full.
+2. Add goblin AI: goblin attacks automatically when its action bar is full. ✅
 3. Enable player actions: attack, defend, use item, run (menu selection and effects).
-4. Handle health and damage: update HP for player and goblin, show defeat/victory.
+4. Handle health and damage: update HP for player and goblin, show defeat/victory. ✅
 5. Animate actions: show attack/defend/item effects visually.
 6. Reset action bars after each turn/action.
-7. Add win/lose conditions and end battle screen.
+7. Add win/lose conditions and end battle screen. ✅

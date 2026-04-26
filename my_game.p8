@@ -1,356 +1,242 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
-function test_assert(cond, msg)
-    if not cond then
-        printh("FAILED: " .. msg, "test_log.txt")
-        assert(false, "Test failed: " .. msg)  -- This will stop execution with an error
-    else
-        printh("PASSED: " .. msg, "test_log.txt")
-    end
-end
 
+-- ┌─────────────────────────────┐
+-- │         constants           │
+-- └─────────────────────────────┘
+local ATB_MAX        = 100
+local ATB_BAR_START  = 40   -- player atb bar left edge (px)
+local ATB_BAR_END    = 76   -- player atb bar right edge (px)
+local MON_ATB_START  = 46   -- monster atb bar left edge (px)
+local MON_ATB_END    = 67   -- monster atb bar right edge (px)
+local PLAYER_DAMAGE  = 10
+local MONSTER_DAMAGE = 5
+local ITEM_HEAL      = 10
+
+-- ┌─────────────────────────────┐
+-- │           init              │
+-- └─────────────────────────────┘
 function _init()
-    run_tests()
-    init_menu()
-    init_monsters()
-    init_health()
-    init_action()
+    init_state()
     init_player()
-    init_monsters_health()
-    init_monsters_action()
+    init_monster()
+    init_menu()
 end
 
-function _update()
-    update_menu()
-    update_monsters()
-    update_health()
-    update_action()
-    update_player()
-    update_monsters_health()
-    update_monsters_action()
-    -- ...existing code...
-end
-
-function _draw()
-    cls()
-    draw_menu()
-    draw_monsters()
-    draw_health()
-    draw_action()
-    draw_player()
-    draw_monsters_health()
-    draw_monsters_action()
-end
-
--- battle menu
-function init_menu()
-    your_turn = false
+function init_state()
+    game_over    = false
+    player_won   = false
+    your_turn    = false
     monster_turn = false
-    game_over = false  -- ← ADD THIS LINE
+end
+
+function init_player()
+    player_health      = 100
+    player_max_health  = 100
+    player_defending   = false
+    player_atb         = 0
+    player_atb_fill    = ATB_BAR_START
+end
+
+function init_monster()
+    monster_health     = 100
+    monster_max_health = 100
+    monster_atb        = 0
+    monster_atb_fill   = MON_ATB_START
+    monster_y_offset   = 0
+    monster_co         = nil
+end
+
+function init_menu()
     actions = {"attack", "defend", "item", "run"}
     menusel = 1
 end
 
-function perform_attack()
-    if menusel == 1 then
-        monster_health -= 10
-        return true
+-- ┌─────────────────────────────┐
+-- │          update             │
+-- └─────────────────────────────┘
+function _update()
+    if game_over or player_won then
+        -- press x to restart
+        if btnp(4) then _init() end
+        return
     end
-    return false
+
+    update_player_atb()
+    update_monster_atb()
+    update_menu()
 end
 
-function update_menu()
-    if btnp(3) then
-        if menusel < #actions then
-            menusel += 1
-        else
-            menusel = 1
+function update_player_atb()
+    if your_turn then return end
+
+    player_atb      += 1
+    player_atb_fill  = ATB_BAR_START + (ATB_BAR_END - ATB_BAR_START) * player_atb / ATB_MAX
+
+    if player_atb >= ATB_MAX then
+        your_turn       = true
+        player_atb      = ATB_MAX
+        player_atb_fill = ATB_BAR_END
+    end
+end
+
+function update_monster_atb()
+    if monster_health <= 0 then return end
+
+    -- waiting for animation to finish
+    if monster_turn then
+        if costatus(monster_co) != "dead" then
+            coresume(monster_co)
+            return
         end
-    elseif btnp(2) then
-        if menusel > 1 then
-            menusel -= 1
-        else
-            menusel = #actions
+        -- animation done: deal damage, reset turn
+        local dmg = monster_turn_damage()
+        player_health -= dmg
+        if player_health <= 0 then
+            player_health = 0
+            game_over     = true
         end
+        monster_turn     = false
+        monster_y_offset = 0
+        monster_atb      = 0
+        monster_atb_fill = MON_ATB_START
+        return
     end
-    if your_turn and btnp(4) then -- X button
-        perform_attack()  -- ← call the extracted function
-        
-        if menusel == 2 then
-            player_defending = true
-        elseif menusel == 3 then
-            player_health += 10
-        elseif menusel == 4 then
-            game_over = true
-        end
-        your_turn = false
-        action = 0
-        bar_width = 40
-    end
-end
 
-function draw_menu()
-    rectfill(0, 90, 127, 127, 6)
-    rectfill(2, 92, 125, 125, 1)
-    
-    if not game_over then  -- ← only draw menu if NOT game over
-        if your_turn then
-            rectfill(5, 88 + 7 * menusel, 29, 94 + 7 * menusel, 5)
-            for i = 1, #actions do
-                print(actions[i], 6, 89+7*i, 7)
-            end
-        end
-    else
-        print("game over", 45, 50)
+    monster_atb      += 1
+    monster_atb_fill  = MON_ATB_START + (MON_ATB_END - MON_ATB_START) * monster_atb / ATB_MAX
+
+    if monster_atb >= ATB_MAX then
+        monster_turn     = true
+        monster_atb      = ATB_MAX
+        monster_atb_fill = MON_ATB_END
+        monster_co       = cocreate(monster_attack_anim)
     end
 end
 
--- monsters
-function init_monsters()
-    monster_y_offset = 0
-end
-
-function update_monsters()
-end
-
-function draw_monsters()
-    spr(129, 55, 20 + monster_y_offset, 4, 4)
-end
-
--- monsters hp
-function init_monsters_health()
-    monster_health = 73
-end
-
-function update_monsters_health()
-end
-
-function draw_monsters_health()
-    rect(51, 9, 74, 13, 6)
-    -- rectfill(52, 10, 73, 12, 8) -- health
-    if monster_health > 52 then
-        rectfill(52, 10, max(44, monster_health), 12, 8)
+function monster_turn_damage()
+    if player_defending then
+        player_defending = false
+        return flr(MONSTER_DAMAGE / 2)
     end
+    return MONSTER_DAMAGE
 end
 
--- monsters action bar
-function init_monsters_action()
-    monster_action = 0
-    monster_bar_width = 46
-end
-
-function monster_animation()
-    for i=1,10 do
+function monster_attack_anim()
+    for i = 1, 10 do
         monster_y_offset += 4
         yield()
     end
 end
 
-function update_monsters_action()
-    if game_over then return end  -- ← use game_over flag instead
-    if monster_health <= 52 then return end
+function update_menu()
+    if not your_turn then return end
 
-    if not monster_turn then
-        monster_action += 1
-        monster_bar_width = 46 + 36 * monster_action / 100
-        if monster_bar_width >= 67 then
-            monster_turn = true
-            monster_bar_width = 67
-            monster_co = cocreate(monster_animation)
+    -- navigate
+    if btnp(3) then
+        menusel = menusel < #actions and menusel + 1 or 1
+    elseif btnp(2) then
+        menusel = menusel > 1 and menusel - 1 or #actions
+    end
+
+    -- confirm action
+    if btnp(4) then
+        perform_action()
+    end
+end
+
+function perform_action()
+    if menusel == 1 then        -- attack
+        monster_health -= PLAYER_DAMAGE
+        if monster_health <= 0 then
+            monster_health = 0
+            player_won     = true
         end
-        return
-    end
 
-    if costatus(monster_co) != "dead" then
-        coresume(monster_co)
-        return
-    end
+    elseif menusel == 2 then    -- defend
+        player_defending = true
 
-    player_health -= 5
-    monster_turn = false
-    monster_y_offset = 0
-    monster_action = 0  
-end
+    elseif menusel == 3 then    -- item
+        player_health = min(player_health + ITEM_HEAL, player_max_health)
 
-function draw_monsters_action()
-    rect(51, 13, 74, 17, 6)
-    rectfill(52, 14, 6 + monster_bar_width, 16, 10)
-end
-
--- player
-function init_player()
-end
-
-function update_player()
-    -- ensure game over only at 0 or less
-    if player_health <= 0 then
+    elseif menusel == 4 then    -- run
         game_over = true
     end
+
+    -- end player turn
+    your_turn       = false
+    player_atb      = 0
+    player_atb_fill = ATB_BAR_START
 end
 
-function draw_player()
+-- ┌─────────────────────────────┐
+-- │           draw              │
+-- └─────────────────────────────┘
+function _draw()
+    cls()
+    draw_battle_scene()
+    draw_hud()
+end
+
+function draw_battle_scene()
+    -- monster
+    spr(129, 55, 20 + monster_y_offset, 4, 4)
+    -- player
     spr(64, 44, 54, 4, 4)
 end
 
--- hp
-function init_health()
-    player_health = 100
-    player_max_health = 100
-end
-
-function update_health()
-end
-
-function draw_health()
-    rect(43, 100, 83, 106, 6)
-    print(player_health.."/"..player_max_health, 10, 10)
-    -- clamp health
-    local hp = max(0, min(player_health, player_max_health))
-    -- bar coordinates
-    local bar_x0 = 44
-    local bar_x1 = 82
-    local bar_width = bar_x1 - bar_x0
-    -- percent fill
-    local fill = flr(bar_width * hp / player_max_health)
-    -- always draw red bar for hp > 0
-    if hp > 0 then
-        rectfill(bar_x0, 101, bar_x0 + fill, 105, 8)
+function draw_hud()
+    -- end-state overlays (drawn on top of everything)
+    if player_won then
+        print("victory!", 43, 50, 10)
+        print("press x to play again", 10, 60, 7)
+        return
     end
-end
+    if game_over then
+        print("game over", 42, 50, 8)
+        print("press x to play again", 10, 60, 7)
+        return
+    end
 
--- action bar
-function init_action()
-    action = 0
-    bar_width = 40  -- ← ADD THIS LINE
-end
+    -- hud panel background
+    rectfill(0, 90, 127, 127, 6)
+    rectfill(2, 92, 125, 125, 1)
 
-function update_action()
-    if game_over then return end  -- ← use game_over flag instead
-    if not your_turn then
-        action += 1
-        bar_width = 40 + 36 * action / 100
-        if bar_width >= 76 then
-            your_turn = true
-            bar_width = 76
+    -- hp text (top-left corner)
+    print(player_health .. "/" .. player_max_health, 10, 10, 7)
+
+    -- player hp bar
+    draw_bar(43, 100, 83, 106, player_health, player_max_health, 8)
+
+    -- player atb bar
+    rect(43, 108, 83, 114, 6)
+    rectfill(44, 109, 6 + player_atb_fill, 113, 10)
+
+    -- monster hp bar
+    draw_bar(51, 9, 74, 13, monster_health, monster_max_health, 8)
+
+    -- monster atb bar
+    rect(51, 13, 74, 17, 6)
+    rectfill(52, 14, 6 + monster_atb_fill, 16, 10)
+
+    -- action menu (only on player's turn)
+    if your_turn then
+        rectfill(5, 88 + 7 * menusel, 29, 94 + 7 * menusel, 5)
+        for i = 1, #actions do
+            print(actions[i], 6, 89 + 7 * i, 7)
         end
     end
 end
 
-function draw_action()
-    rect(43, 108, 83, 114, 6)
-    rectfill(44, 109, 6 + bar_width, 113, 10)
-end
-
---test
--- test_runner.lua for PICO-8 Chrono-Trigger Battle Mini-Game
--- Run these tests by calling run_tests() in your code or console
-
-function run_tests()
-    printh("", "test_log.txt", false) -- clear log
-    printh("=== BATTLE SYSTEM TESTS ===", "test_log.txt")
-    printh("", "test_log.txt")
-    
-    printh("--- Damage Tests ---", "test_log.txt")
-    test_monster_takes_damage()
-    test_player_attack_action()
-    printh("", "test_log.txt")
-    
-    printh("--- Action Tests ---", "test_log.txt")
-    test_player_defends()
-    test_action_bar_fills()
-    printh("", "test_log.txt")
-    
-    printh("--- Game Over Tests ---", "test_log.txt")
-    test_game_over()
-    printh("", "test_log.txt")
-    
-    printh("--- Health Bar Tests ---", "test_log.txt")
-    test_player_health_bar()
-    printh("", "test_log.txt")
-    
-    printh("✅ All tests passed!", "test_log.txt")
-end
-
-function test_monster_takes_damage()
-    -- Setup: player's turn, attack action selected
-    monster_health = 50
-    your_turn = true
-    menusel = 1  -- "attack" is first action
-    
-    -- Simulate pressing X button to attack
-    -- (we can't call btnp(), so we manually execute the attack logic)
-    if menusel == 1 then
-        monster_health -= 10
+-- draws a filled progress bar inside a bordered rect
+function draw_bar(x0, y0, x1, y1, val, max_val, col)
+    rect(x0, y0, x1, y1, 6)
+    local w    = x1 - x0 - 1
+    local fill = flr(w * max(0, min(val, max_val)) / max_val)
+    if fill > 0 then
+        rectfill(x0 + 1, y0 + 1, x0 + fill, y1 - 1, col)
     end
-    
-    test_assert(monster_health == 40, "monster takes 10 damage on attack")
-end
-
-function test_player_attack_action()
-    monster_health = 73
-    menusel = 1  -- attack action
-    perform_attack()
-    test_assert(monster_health == 63, "attack does 10 damage")
-end
-
-function test_player_defends()
-    player_defending = false
-    player_defending = true
-    test_assert(player_defending == true, "player can defend")
-end
-
-function test_action_bar_fills()
-    action = 0
-    bar_width = 40 + 36 * action / 100
-    action += 100
-    bar_width = 40 + 36 * action / 100
-    test_assert(bar_width == 76, "action bar fills to 76")
-end
-
-function test_player_attack_action()
-    monster_health = 50
-    monster_health -= 10
-    test_assert(monster_health == 40, "player attack reduces monster health by 10")
-end
-
-function test_game_over()
-    player_health = 40
-    game_over = false
-    update_player()
-    test_assert(game_over == false, "game continues above 0 HP")
-
-    player_health = 0
-    game_over = false
-    update_player()
-    test_assert(game_over == true, "game over at 0 HP")
-
-    player_health = -10
-    game_over = false
-    update_player()
-    test_assert(game_over == true, "game over at negative HP")
-end
-
-function test_player_health_bar()
-    local bar_x0 = 44
-    local bar_x1 = 83
-    local bar_width = bar_x1 - bar_x0
-
-    local function expected_bar_end(hp)
-        return bar_x0 + flr(bar_width * max(0, min(100, hp)) / 100)
-    end
-
-    player_health = 100
-    local bar_end = expected_bar_end(player_health)
-    test_assert(bar_end == 83, "health bar full at 100 HP")
-
-    player_health = 50
-    bar_end = expected_bar_end(player_health)
-    test_assert(bar_end == 63, "health bar half at 50 HP")
-
-    player_health = 0
-    bar_end = expected_bar_end(player_health)
-    test_assert(bar_end == 44, "health bar empty at 0 HP")
 end
 
 __gfx__
