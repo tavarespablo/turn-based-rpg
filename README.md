@@ -58,6 +58,7 @@ A Chrono Trigger like mini game based on its Active Time Battle system.
 - v0.6: win screen reframed, added win sfx
 - v0.7: added loss sfx
 - v0.8: redesigned HUD and repositioned loss message
+- v0.9: added menu state, music for it, small fixes to text
 
 ---
 
