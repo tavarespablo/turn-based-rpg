@@ -186,6 +186,7 @@ end
 
 function update_menu()
     if not your_turn then return end
+    if player_attacking  then return end
 
     if in_item_menu then
         update_item_menu()
@@ -335,8 +336,8 @@ function draw_hud()
         return
     end
     if game_over then
-        print("game over", 42, 50, 8)
-        print("press x to play again", 10, 60, 7)
+        print("game over", 48, 50, 8)
+        print("press x to play again", 25, 60, 7)
         return
     end
 
@@ -344,26 +345,7 @@ function draw_hud()
     rectfill(0, 90, 127, 127, 6)
     rectfill(2, 92, 125, 125, 1)
 
-    -- hp text (top-left corner)
-    print(player_health .. "/" .. player_max_health, 10, 10, 7)
-
-    -- player hp bar (pisca branco quando flash ativo)
-    local p_col = flash_color(player_flash_t, 8)
-    draw_bar(43, 100, 83, 106, player_health, player_max_health, p_col)
-
-    -- player atb bar
-    rect(43, 108, 83, 114, 6)
-    rectfill(44, 109, 6 + player_atb_fill, 113, 10)
-
-    -- monster hp bar (pisca branco quando flash ativo)
-    local m_col = flash_color(monster_flash_t, 8)
-    draw_bar(52, 19, 75, 23, monster_health, monster_max_health, m_col)
-
-    -- monster atb bar
-    rect(52, 23, 75, 27, 6)
-    rectfill(53, 24, 7 + monster_atb_fill, 26, 10)
-
-    -- menus
+    -- ── lado esquerdo: menu de ações ──
     if your_turn then
         if in_item_menu then
             draw_item_menu()
@@ -371,6 +353,35 @@ function draw_hud()
             draw_action_menu()
         end
     end
+
+    -- ── lado direito: stats do player ──
+    -- divisor vertical
+    line(62, 93, 62, 124, 6)
+
+    -- nome
+    print("player", 68, 95, 7)
+
+    -- hp em texto (ex: "80/100")
+    local hp_text = player_health .. "/" .. player_max_health
+    print(hp_text, 68, 104, 7)
+
+    -- barra de hp
+    local p_col = flash_color(player_flash_t, 8)
+    draw_bar(68, 111, 120, 116, player_health, player_max_health, p_col)
+
+    -- label + barra atb
+    rect(68, 117, 120, 122, 6)
+    local atb_fill = flr(39 * player_atb / ATB_MAX)
+    rectfill(69, 118, 80 + atb_fill, 121, 10)
+    print("action!", 81, 118, 1)
+
+    -- ── monster hp bar (posição já definida por ti) ──
+    local m_col = flash_color(monster_flash_t, 8)
+    draw_bar(52, 19, 75, 23, monster_health, monster_max_health, m_col)
+
+    -- monster atb bar
+    rect(52, 23, 75, 27, 6)
+    rectfill(53, 24, 7 + monster_atb_fill, 26, 10)
 end
 
 function draw_action_menu()
