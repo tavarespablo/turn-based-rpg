@@ -19,6 +19,9 @@ A Chrono Trigger like mini game based on its Active Time Battle system.
 - **Animation:**  
   (Are you using coroutines? How are actions/attacks animated?)
 
+- **Extensions:**
+  For VSCode, I'm using pico8-ls and pico8-theme
+
 ---
 
 ## Tech Stack & Limitations
